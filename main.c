@@ -5,9 +5,11 @@
 
 #define MAX_NAME_LEN 50
 #define MAX_CHILDREN 20
+#define MAX_QUEUE_SIZE 1000
 
 
 typedef unsigned long ulong;
+
 typedef struct Person {
   char name[MAX_NAME_LEN];
   struct Person *parent;
@@ -20,6 +22,12 @@ typedef struct {
   Person** entries;
   size_t size;
 } HashTable;
+
+typedef struct {
+  Person **items;
+  int front;
+  int rear;
+} Queue;
 
 ulong hash(char *str)
 {
@@ -44,6 +52,10 @@ Person *find_person(HashTable *ht, char *name)
 {
   ulong nameHash = hash(name) % ht->size;
   
+  if (!(ht->entries[nameHash])) {
+      printf("no such person\n");
+      return NULL;
+  }
   if (strcmp(ht->entries[nameHash]->name, name) == 0)
     return ht->entries[nameHash];
   printf("could't find person %s\n", name);
@@ -77,10 +89,14 @@ void parse_csv(HashTable *ht, const char *filename)
   while (fgets(line, sizeof(line), file)) {
     char *parent_name = strtok(line, ",");
 
-    Person *parent = create_person(ht, parent_name);
+    Person *parent;
+    if (find_person(ht, parent_name))
+      parent = find_person(ht, parent_name);
+    else
+      parent = create_person(ht, parent_name);
 
     while (true) {
-      char *child_name = strtok(NULL, "\n");
+      char *child_name = strtok(NULL, ",\n");
       if (child_name == NULL)
         break;
       Person *child = create_person(ht, child_name);
@@ -100,14 +116,120 @@ void display_hashtable(HashTable *ht)
   for (int i = 0; i < 100; i++) {
     if (ht->entries[i] == NULL)
       continue;
-    printf("%s\n", ht->entries[i]->name);
+    printf("name: %s, parent: %s\n", ht->entries[i]->name, ht->entries[i]->parent->name);
   }
 }
 
-void destroy_hashtable(HashTable *ht)
+void free_hashtable(HashTable *ht)
 {
+  for (int i = 0; i < 100; i++) {
+    if (ht->entries[i]) {
+      free(ht->entries[i]->children);
+      free(ht->entries[i]);
+    }
+  }
   free(ht->entries);
   free(ht);
+}
+
+Queue *create_queue()
+{
+  Queue *q = malloc(sizeof(Queue));
+  q->items = malloc(MAX_QUEUE_SIZE * sizeof(Person *));
+  q->front = -1;
+  q->rear = -1;
+  return q;
+}
+
+void enqueue(Queue *q, Person *p)
+{
+  if (q->rear == MAX_QUEUE_SIZE - 1) {
+    printf("queue is full\n");
+    return;
+  }
+  if (q->front == - 1) {
+    q->front = 0;
+  }
+  q->rear++;
+  q->items[q->rear] = p;
+}
+
+Person *dequeue(Queue *q)
+{
+  if (q->front == -1 || q->front > q->rear) {
+    printf("Queue is full\n");
+    return NULL;
+  }
+  Person *p = q->items[q->front];
+  q->front++;
+  if (q->front > q->rear) {
+    q->front = q->rear = -1;
+  }
+  return p;
+}
+
+bool is_empty(Queue *q)
+{
+  return (q->front == -1);
+}
+
+void bfs_traversal(Person *root)
+{
+  if (!(root)) {
+    printf("Tree is empty\n");
+    return;
+  }
+
+  Queue *q = create_queue();
+  enqueue(q, root);
+
+  
+  while (!is_empty(q)) {
+    Person *current = dequeue(q);
+    printf("Visited: %s\n", current->name);
+    int enqueue_val = 0;
+
+    for (int i = 0; i < current->num_children; i++) {
+      enqueue(q, current->children[i]);
+      enqueue_val++;
+    }
+    printf("enqueued %i\n", enqueue_val);
+  }
+  free(q->items);
+  free(q);
+}
+
+void print_entries_per_depth(Person* root) {
+    if (root == NULL) {
+        printf("Tree is empty.\n");
+        return;
+    }
+
+    Queue* q = create_queue();
+    enqueue(q, root);
+    int depth = 0;
+
+    while (!is_empty(q)) {
+        // Number of nodes at the current depth
+        int nodes_at_current_depth = q->rear - q->front + 1;
+        printf("Depth %d: %d entries\n", depth, nodes_at_current_depth);
+
+        // Process all nodes at this depth
+        for (int i = 0; i < nodes_at_current_depth; i++) {
+            Person* current = dequeue(q);
+
+            // Enqueue children for the next depth
+            for (int j = 0; j < current->num_children; j++) {
+                enqueue(q, current->children[j]);
+            }
+        }
+
+        depth++; // Move to the next depth
+    }
+
+    // Cleanup
+    free(q->items);
+    free(q);
 }
 
 int main()
@@ -117,7 +239,8 @@ int main()
   HashTable *listOfPeople = create_hash_table(100); 
 
   parse_csv(listOfPeople, "test.csv");
-  display_hashtable(listOfPeople);
+  print_entries_per_depth(find_person(listOfPeople, "John"));
+  free_hashtable(listOfPeople);
   return 0;
 }
 
