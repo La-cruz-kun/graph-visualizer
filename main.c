@@ -29,6 +29,12 @@ typedef struct {
   int rear;
 } Queue;
 
+Vector2 cameraTarget = {0};
+Vector2 cameraOffset = {0};
+float cameraZoom = 1;
+
+Font customFont = {0};
+
 ulong hash(char *str)
 {
   ulong hash = 5381;
@@ -198,12 +204,17 @@ void DrawNodeConnections(Person* node) {
     for (int i = 0; i < node->num_children; i++) {
         Person* child = node->children[i];
         // Draw line from parent to child
+        float midPointY = (node->position.y + child->position.y)/2;
+
+
+        DrawLineEx(node->position, (Vector2) {node->position.x, midPointY}, 2, DARKGRAY);
         DrawLineEx(
-            node->position,
-            child->position,
+            (Vector2) {node->position.x, midPointY},
+            (Vector2) {child->position.x, midPointY},
             2,
             DARKGRAY
         );
+        DrawLineEx((Vector2) {child->position.x, midPointY}, child->position, 2, DARKGRAY);
         DrawNodeConnections(child);
     }
 }
@@ -215,11 +226,12 @@ void DrawAllNodes(Person* node, float width, float height) {
         (Vector2) {(textSize + textSize/5), (height + height/5)}, 
         SKYBLUE
     );
-    DrawText(
+    DrawTextEx(
+        customFont,
         node->name,
-        node->position.x - textSize / 2,
-        node->position.y - (height/2),
+        (Vector2) {node->position.x - textSize / 2, node->position.y - (height/2)},
         width,
+        1,
         BLACK
     );
 
@@ -230,8 +242,21 @@ void DrawAllNodes(Person* node, float width, float height) {
 
 void CheckInput()
 {
-  return;
+  float dt = 10;
+  if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
+    cameraTarget.y -= dt/cameraZoom;
+  }
+  if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
+    cameraTarget.y += dt/cameraZoom;
+  }
+  if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
+    cameraTarget.x -= dt/cameraZoom;
+  }
+  if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
+    cameraTarget.x += dt/cameraZoom;
+  }
 }
+
 int main()
 {
   HashTable *listOfPeople = create_hash_table(100); 
@@ -240,16 +265,28 @@ int main()
   parse_csv(listOfPeople, "test.csv");
   Person *root = find_person(listOfPeople, "John");
   layout_tree(root, hspacing, vspacing);
+
+
   SetConfigFlags(FLAG_MSAA_4X_HINT);
   InitWindow(1280, 720, "Family Tree");
+  customFont = LoadFontEx("fonts/times.ttf", 64, NULL, 0);
+  cameraTarget = root->position;
+  cameraOffset = (Vector2) { GetScreenWidth()/2, GetScreenHeight()/2 };
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(WHITE);
+    BeginMode2D((Camera2D) {
+        .target = cameraTarget,
+        .offset = cameraOffset,
+        .rotation = 0,
+        .zoom = cameraZoom
+        });
     DrawNodeConnections(root);
     DrawAllNodes(root, hspacing/5, vspacing/5);
     CheckInput();
     EndDrawing();
   }
+  UnloadFont(customFont);
   CloseWindow();
   free_hashtable(listOfPeople);
   return 0;
