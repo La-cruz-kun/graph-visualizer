@@ -232,6 +232,70 @@ void print_entries_per_depth(Person* root) {
     free(q);
 }
 
+typedef struct {
+    float x;      // Node's x-coordinate
+    float y;      // Node's y-coordinate
+    float left;   // Leftmost boundary of the subtree
+    float right;  // Rightmost boundary of the subtree
+} SubtreeLayout;
+
+SubtreeLayout calculate_layout(
+    Person* node,
+    float x_offset,          // Starting x-offset for this subtree
+    int depth,               // Current depth (root = 0)
+    float horizontal_spacing,
+    float vertical_spacing
+) {
+    SubtreeLayout layout = {0};
+
+    if (!node) return layout;
+
+    // Leaf node: place at current x_offset
+    if (node->num_children == 0) {
+        node->position.x = x_offset;
+        node->position.y = depth * vertical_spacing;
+        layout.x = x_offset;
+        layout.left = x_offset;
+        layout.right = x_offset;
+        return layout;
+    }
+
+    // Process children recursively
+    SubtreeLayout* children_layouts = malloc(node->num_children * sizeof(SubtreeLayout));
+    float total_children_width = 0;
+
+    for (int i = 0; i < node->num_children; i++) {
+        children_layouts[i] = calculate_layout(
+            node->children[i],
+            x_offset + total_children_width,
+            depth + 1,
+            horizontal_spacing,
+            vertical_spacing
+        );
+        total_children_width += (children_layouts[i].right - children_layouts[i].left) + horizontal_spacing;
+    }
+
+    // Remove extra spacing after last child
+    total_children_width -= horizontal_spacing;
+
+    // Center the parent above its children
+    layout.x = x_offset + total_children_width / 2;
+    layout.left = children_layouts[0].left;
+    layout.right = children_layouts[node->num_children - 1].right;
+
+    // Assign position to the current node
+    node->position.x = layout.x;
+    node->position.y = depth * vertical_spacing;
+
+    free(children_layouts);
+    return layout;
+}
+
+void layout_tree(Person* root, float horizontal_spacing, float vertical_spacing) {
+    if (!root) return;
+    calculate_layout(root, 0, 0, horizontal_spacing, vertical_spacing);
+}
+
 int main()
 {
   ulong hashed = hash("John");
