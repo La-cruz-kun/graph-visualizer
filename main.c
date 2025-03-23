@@ -109,8 +109,6 @@ void parse_csv(HashTable *ht, const char *filename)
   fclose(file);
 }
       
-
-
 void display_hashtable(HashTable *ht)
 {
   for (int i = 0; i < 100; i++) {
@@ -130,106 +128,6 @@ void free_hashtable(HashTable *ht)
   }
   free(ht->entries);
   free(ht);
-}
-
-Queue *create_queue()
-{
-  Queue *q = malloc(sizeof(Queue));
-  q->items = malloc(MAX_QUEUE_SIZE * sizeof(Person *));
-  q->front = -1;
-  q->rear = -1;
-  return q;
-}
-
-void enqueue(Queue *q, Person *p)
-{
-  if (q->rear == MAX_QUEUE_SIZE - 1) {
-    printf("queue is full\n");
-    return;
-  }
-  if (q->front == - 1) {
-    q->front = 0;
-  }
-  q->rear++;
-  q->items[q->rear] = p;
-}
-
-Person *dequeue(Queue *q)
-{
-  if (q->front == -1 || q->front > q->rear) {
-    printf("Queue is full\n");
-    return NULL;
-  }
-  Person *p = q->items[q->front];
-  q->front++;
-  if (q->front > q->rear) {
-    q->front = q->rear = -1;
-  }
-  return p;
-}
-
-bool is_empty(Queue *q)
-{
-  return (q->front == -1);
-}
-
-void bfs_traversal(Person *root)
-{
-  if (!(root)) {
-    printf("Tree is empty\n");
-    return;
-  }
-
-  Queue *q = create_queue();
-  enqueue(q, root);
-
-  
-  while (!is_empty(q)) {
-    Person *current = dequeue(q);
-    printf("Visited: %s\n", current->name);
-    int enqueue_val = 0;
-
-    for (int i = 0; i < current->num_children; i++) {
-      enqueue(q, current->children[i]);
-      enqueue_val++;
-    }
-    printf("enqueued %i\n", enqueue_val);
-  }
-  free(q->items);
-  free(q);
-}
-
-void print_entries_per_depth(Person* root) {
-    if (root == NULL) {
-        printf("Tree is empty.\n");
-        return;
-    }
-
-    Queue* q = create_queue();
-    enqueue(q, root);
-    int depth = 0;
-
-    while (!is_empty(q)) {
-        // Number of nodes at the current depth
-        int nodes_at_current_depth = q->rear - q->front + 1;
-        printf("Depth %d: %d entries\n", depth, nodes_at_current_depth);
-
-        // Process all nodes at this depth
-        for (int i = 0; i < nodes_at_current_depth; i++) {
-            Person* current = dequeue(q);
-
-            // Enqueue children for the next depth
-            for (int j = 0; j < current->num_children; j++) {
-                enqueue(q, current->children[j]);
-            }
-        }
-
-        depth++; // Move to the next depth
-    }
-
-    // Cleanup
-    free(q->items);
-    free(q);
 }
 
 typedef struct {
@@ -293,17 +191,66 @@ SubtreeLayout calculate_layout(
 
 void layout_tree(Person* root, float horizontal_spacing, float vertical_spacing) {
     if (!root) return;
-    calculate_layout(root, 0, 0, horizontal_spacing, vertical_spacing);
+    calculate_layout(root, 100, 1, horizontal_spacing, vertical_spacing);
 }
 
+void DrawNodeConnections(Person* node) {
+    for (int i = 0; i < node->num_children; i++) {
+        Person* child = node->children[i];
+        // Draw line from parent to child
+        DrawLineEx(
+            node->position,
+            child->position,
+            2,
+            DARKGRAY
+        );
+        DrawNodeConnections(child);
+    }
+}
+
+void DrawAllNodes(Person* node, float width, float height) {
+    float textSize = MeasureText(node->name, width);
+    DrawRectangleV( 
+        (Vector2) {node->position.x - (textSize + textSize/5)/2, node->position.y - (height + height/5)/2}, 
+        (Vector2) {(textSize + textSize/5), (height + height/5)}, 
+        SKYBLUE
+    );
+    DrawText(
+        node->name,
+        node->position.x - textSize / 2,
+        node->position.y - (height/2),
+        width,
+        BLACK
+    );
+
+    for (int i = 0; i < node->num_children; i++) {
+        DrawAllNodes(node->children[i], width, height);
+    }
+}
+
+void CheckInput()
+{
+  return;
+}
 int main()
 {
-  ulong hashed = hash("John");
-  printf("%lu\n", hashed);
   HashTable *listOfPeople = create_hash_table(100); 
-
+  float hspacing = 150;
+  float vspacing = 200;
   parse_csv(listOfPeople, "test.csv");
-  print_entries_per_depth(find_person(listOfPeople, "John"));
+  Person *root = find_person(listOfPeople, "John");
+  layout_tree(root, hspacing, vspacing);
+  SetConfigFlags(FLAG_MSAA_4X_HINT);
+  InitWindow(1280, 720, "Family Tree");
+  while (!WindowShouldClose()) {
+    BeginDrawing();
+    ClearBackground(WHITE);
+    DrawNodeConnections(root);
+    DrawAllNodes(root, hspacing/5, vspacing/5);
+    CheckInput();
+    EndDrawing();
+  }
+  CloseWindow();
   free_hashtable(listOfPeople);
   return 0;
 }
