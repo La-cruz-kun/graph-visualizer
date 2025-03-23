@@ -17,3 +17,4 @@ is equivalent to
 John,child1,child2
 ```
 
+consequently you can navigate with the keyboard arrow keys
