@@ -255,6 +255,9 @@ void CheckInput()
   if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
     cameraTarget.x += dt/cameraZoom;
   }
+  if (IsKeyPressed(KEY_F12)) {
+    TakeScreenshot("screenshot.png");
+  }
 }
 
 int main()
